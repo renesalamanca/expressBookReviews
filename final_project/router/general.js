@@ -3,7 +3,7 @@ let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
 let users = require("./auth_users.js").users;
 const public_users = express.Router();
-
+const axios = require('axios');
 
 public_users.post("/register", (req,res) => {
   //Write your code here
@@ -25,61 +25,80 @@ public_users.post("/register", (req,res) => {
   return res.status(404).json({message: "Unable to register user."});
 });
 
+// Simulate a database call using a Promise
+const getBooks = () => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(books);
+        }, 1000); // Simulate network latency
+    });
+};
+
 // Get the book list available in the shop
-public_users.get('/',function (req, res) {
-  //Write your code here
-  res.send(JSON.stringify(books,null,4));
+public_users.get('/', async function (req, res) {
+    getBooks()
+        .then(bookList => {
+            res.status(200).send(JSON.stringify(bookList, null, 4));
+        })
+        .catch(error => {
+            res.status(500).json({ message: "Error fetching books" });
+        });
 });
 
 // Get book details based on ISBN
-public_users.get('/isbn/:isbn',function (req, res) {
-  //Write your code here
-  // Retrieve the ISBN parameter from the request URL and send the corresponding book's details
+public_users.get('/isbn/:isbn', async function (req, res) {
     const isbn = req.params.isbn;
-
-    // Convert the books object to an array of its values
-    const booksArray = Object.values(books);
-
-    let bookbyisbn = booksArray.filter(book => book.isbn === isbn);
-    res.send(JSON.stringify(bookbyisbn));
- });
+    getBooks()
+        .then(bookList => {
+            const booksArray = Object.values(bookList);
+            let bookbyisbn = booksArray.filter(book => book.isbn === isbn);
+            if (bookbyisbn.length > 0) {
+                res.status(200).send(JSON.stringify(bookbyisbn[0]));
+            } else {
+                res.status(404).json({ message: "Book not found" });
+            }
+        })
+        .catch(error => {
+            res.status(500).json({ message: "Error fetching book details" });
+        });
+});
   
 // Get book details based on author
-public_users.get('/author/:author',function (req, res) {
-  //Write your code here
-  // Retrieve the author parameter from the request URL and send the corresponding book's details
-  const author = req.params.author;
+public_users.get('/author/:author', async function (req, res) {
+    try {
+        const author = req.params.author;
+        const bookList = await getBooks(); // Wait for the promise to resolve
+        const booksArray = Object.values(bookList);
+        
+        let booksByAuthor = booksArray.filter(book => book.author === author);
 
-  // Convert the books object to an array of its values
-  const booksArray = Object.values(books);
-
-  let booksByAuthor = [];
-
-  booksArray.forEach(book => {
-    if (book["author"] === author) {
-        booksByAuthor.push(book);
+        if (booksByAuthor.length > 0) {
+            res.status(200).send(JSON.stringify(booksByAuthor, null, 4));
+        } else {
+            res.status(404).json({ message: "No books found by that author." });
+        }
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching books by author." });
     }
-  });
-  res.send(JSON.stringify(booksByAuthor));
 });
 
 // Get all books based on title
-public_users.get('/title/:title',function (req, res) {
-    //Write your code here
-    // Retrieve the author parameter from the request URL and send the corresponding book's details
-    const title = req.params.title;
-  
-    // Convert the books object to an array of its values
-    const booksArray = Object.values(books);
-  
-    let booksByTitle = [];
-  
-    booksArray.forEach(book => {
-      if (book["title"] === title) {
-        booksByTitle.push(book);
-      }
-    });
-    res.send(JSON.stringify(booksByTitle));
+public_users.get('/title/:title', async function (req, res) {
+    try {
+        const title = req.params.title;
+        const bookList = await getBooks(); // Wait for the promise to resolve
+        const booksArray = Object.values(bookList);
+        
+        let booksByTitle = booksArray.filter(book => book.title === title);
+
+        if (booksByTitle.length > 0) {
+            res.status(200).send(JSON.stringify(booksByTitle, null, 4));
+        } else {
+            res.status(404).json({ message: "No books found with that title." });
+        }
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching books by title." });
+    }
 });
 
 //  Get book review
